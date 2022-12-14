@@ -1,0 +1,40 @@
+{
+  "kp_pos": {
+    "xy": 2.0,
+    "z": 2.0
+  },
+  "kd_pos": {
+    "xy": 4.0,
+    "z": 2.0
+  },
+  "kp_vel": {
+    "xy": 0.5,
+    "z": 1.0
+  },
+  "ki_vel": {
+    "xy": 0.02,
+    "z": 0.02
+  },
+  "kd_vel": {
+    "xy": 0.01,
+    "z": 0.01
+  },
+  "filt_coeff": 5.0,
+  "thrust": {
+    "hover": 14.72,
+    "offset": 0.0,
+    "scaling": 0.04397
+  },
+  "constraints": {
+    "max_vel_sp": {
+      "xy": 6.0,
+      "z": 4.0
+    },
+    "min_thrust": 0.0,
+    "max_thrust": 20.0,
+    "max_tilt_angle": 45.0
+  },
+  "controller": {
+    "looptime": 0.01
+  }
+}
