@@ -1,3 +1,8 @@
+# Copyright (c) 2022 hs293go
+#
+# This software is released under the MIT License.
+# https://opensource.org/licenses/MIT
+
 import numpy as np
 import rospy
 from std_msgs.msg import Header
