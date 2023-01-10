@@ -1,4 +1,0 @@
-{
-  "clangd.enabled": true,
-  "clangd.compilationDatabasePath": "~/catkin_ws/build/uav_pid_control"
-}

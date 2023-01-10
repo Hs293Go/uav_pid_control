@@ -21,14 +21,14 @@ PIDControlRos::PIDControlRos() {
 }
 
 int PIDControlRos::spin() {
-  ros::NodeHandle nh;
+  const ros::NodeHandle nh;
   timer_ = nh.createTimer(loop_interval_, &PIDControlRos::mainLoop, this);
   ros::spin();
   return 0;
 }
 
 void PIDControlRos::loadParams() {
-  ros::NodeHandle pnh("~");
+  const ros::NodeHandle pnh("~");
   control::PIDController<double>::Params p;
   p.kp_pos.head<2>().setConstant(pnh.param("kp_pos/xy", 1.0));
   p.kp_pos.z() = pnh.param("kp_pos/z", 1.0);
@@ -41,9 +41,9 @@ void PIDControlRos::loadParams() {
   p.kd_vel.head<2>().setConstant(pnh.param("kd_vel/xy", 0.01));
   p.kd_vel.z() = pnh.param("kd_vel/z", 0.01);
   p.filt_coeff = pnh.param("filt_coeff", 5.0);
-  p.hover_throttle = pnh.param("thrust/hover", 9.81);
-  p.motor_intercept = pnh.param("thrust/offset", 0.0);
-  p.motor_slope = pnh.param("thrust/scaling", 0.03397);
+  p.hover_thrust = pnh.param("thrust/hover", 9.81);
+  throttle_intercept_ = pnh.param("thrust/offset", 0.0);
+  throttle_slope_ = pnh.param("thrust/scaling", 0.03397);
   p.max_vel_sp.head<2>().setConstant(
       pnh.param("constraints/max_vel_sp/xy", 1.0));
   p.max_vel_sp.z() = pnh.param("constraints/max_vel_sp/z", 2.0);
@@ -58,13 +58,17 @@ void PIDControlRos::loadParams() {
 void PIDControlRos::setupPubSub() {
   using std::string_literals::operator""s;
   ros::NodeHandle nh;
-  pos_sub_ = nh.subscribe("/mavros/local_position/pose"s, 1,
-                          &PIDControlRos::poseCb, this);
-  vel_sub_ = nh.subscribe("/mavros/local_position/velocity_local"s, 1,
-                          &PIDControlRos::twistCb, this);
+  pos_sub_ = nh.subscribe(
+      "/mavros/local_position/pose"s, 1, &PIDControlRos::poseCb, this);
+  vel_sub_ = nh.subscribe("/mavros/local_position/velocity_local"s,
+                          1,
+                          &PIDControlRos::twistCb,
+                          this);
 
-  pos_sp_sub_ = nh.subscribe("/uav_pid_control/setpoints/position", 1,
-                             &PIDControlRos::positionTargetCb, this);
+  pos_sp_sub_ = nh.subscribe("/uav_pid_control/setpoints/position",
+                             1,
+                             &PIDControlRos::positionTargetCb,
+                             this);
   att_tgt_pub_ = nh.advertise<mavros_msgs::AttitudeTarget>(
       "/mavros/setpoint_raw/attitude"s, 1);
   ctl_status_pub_ = nh.advertise<uav_pid_control::PIDControlStatus>(
@@ -73,7 +77,8 @@ void PIDControlRos::setupPubSub() {
 
 void PIDControlRos::stateCb(const mavros_msgs::StateConstPtr& msg) {
   using std::string_literals::operator""s;
-  ctl_.pause_integration() = !msg->armed || msg->mode != "OFFBOARD";
+  ctl_.pause_integration() =
+      !static_cast<bool>(msg->armed) || msg->mode != "OFFBOARD"s;
 }
 
 void PIDControlRos::poseCb(const geometry_msgs::PoseStampedConstPtr& msg) {
@@ -90,14 +95,18 @@ void PIDControlRos::positionTargetCb(
   ctl_.yaw_sp() = msg->heading;
 }
 
+double PIDControlRos::throttleCurve(double x) const {
+  return throttle_intercept_ + throttle_slope_ * x;
+}
+
 void PIDControlRos::mainLoop(const ros::TimerEvent& event) {
-  ros::Time now = event.current_real;
-  double dt = (now - event.last_expired).toSec();
-  ctl_.run(dt);
+  const ros::Time now = event.current_real;
+  const double dt = (now - event.last_expired).toSec();
+  const auto& [orientation_sp, thrust_sp] = ctl_.computeControlOutput(dt);
   mavros_msgs::AttitudeTarget pld;
   pld.header.stamp = now;
-  pld.orientation = tf2::toMsg(ctl_.orientation_sp());
-  pld.thrust = ctl_.throttle_sp();
+  pld.orientation = tf2::toMsg(orientation_sp);
+  pld.thrust = std::clamp(throttleCurve(thrust_sp), 0.0, 1.0);
   att_tgt_pub_.publish(pld);
 
   uav_pid_control::PIDControlStatus status;

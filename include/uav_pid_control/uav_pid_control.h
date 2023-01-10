@@ -5,6 +5,7 @@
 
 #ifndef UAV_PID_CONTROL_UAV_PID_CONTROL_H_
 #define UAV_PID_CONTROL_UAV_PID_CONTROL_H_
+
 #include "geometry_msgs/PoseStamped.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "mavros_msgs/State.h"
@@ -29,6 +30,10 @@ class PIDControlRos {
   void twistCb(const geometry_msgs::TwistStampedConstPtr& msg);
   void positionTargetCb(const uav_pid_control::PositionTargetConstPtr& msg);
   void mainLoop(const ros::TimerEvent& event);
+  [[nodiscard]] double throttleCurve(double x) const;
+
+  double throttle_slope_;
+  double throttle_intercept_;
 
   ros::Subscriber state_sub_;
   ros::Subscriber pos_sub_;
@@ -38,6 +43,6 @@ class PIDControlRos {
   ros::Publisher ctl_status_pub_;
   ros::Timer timer_;
   ros::Duration loop_interval_;
-  control::PIDController<> ctl_;
+  control::PIDController<double> ctl_;
 };
 #endif  // UAV_PID_CONTROL_UAV_PID_CONTROL_H_
